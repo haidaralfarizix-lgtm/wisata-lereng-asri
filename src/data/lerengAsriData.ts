@@ -461,6 +461,116 @@ export const FAQ_ITEMS: FaqItem[] = [
   },
 ];
 
+export type TravelTipCategory =
+  | 'semua'
+  | 'waktu'
+  | 'transportasi'
+  | 'fisik'
+  | 'perlengkapan';
+
+export interface TravelTipItem {
+  id: string;
+  category: Exclude<TravelTipCategory, 'semua'>;
+  categoryLabel: string;
+  title: string;
+  highlightValue: string;
+  summary: string;
+  actionPoints: string[];
+}
+
+export const TRAVEL_TIPS: TravelTipItem[] = [
+  {
+    id: 'tip-waktu-berkunjung',
+    category: 'waktu',
+    categoryLabel: 'Waktu Terbaik',
+    title: 'Datang Pagi Hari & Pilih Musim Kemarau',
+    highlightValue: '06.00 – 09.30 WIB',
+    summary:
+      'Jam terbaik untuk melihat kabut tipis di Bukit Pinus, cahaya matahari lembut di Kebun Teh, dan udara pegunungan yang paling jernih.',
+    actionPoints: [
+      'Musim kemarau (Mei – September) ideal untuk jalur trekking kering dan langit cerah saat berkemah.',
+      'Hari kerja (Senin – Jumat) terasa jauh lebih tenang jika ingin berfoto tanpa antre di saung teh.',
+      'Pada akhir pekan atau musim hujan, usahakan tiba sebelum pukul 09.00 WIB sebelum kabut tebal turun.',
+    ],
+  },
+  {
+    id: 'tip-transportasi-umum',
+    category: 'transportasi',
+    categoryLabel: 'Transportasi Umum',
+    title: 'Panduan Angkutan Umum dari Solo & Karanganyar',
+    highlightValue: '± 90 Menit dari Solo',
+    summary:
+      'Tanpa kendaraan pribadi, kawasan Ngargoyoso tetap mudah dijangkau dengan kombinasi bus antar-kota dan ojek pangkalan desa.',
+    actionPoints: [
+      'Dari Terminal Tirtonadi Solo atau Terminal Palur, naik bus jurusan Karanganyar – Tawangmangu lalu turun di Terminal Karangpandan.',
+      'Lanjutkan dengan angkutan desa jurusan Kemuning / Ngargoyoso hingga Pertigaan Pasar Ngargoyoso, lalu ojek desa ± 10 menit ke Pendopo Utama.',
+      'Untuk rombongan sekolah atau kantor (> 12 orang), admin dapat membantu mengarahkan sewa elf atau penjemputan dari titik temu Karangpandan.',
+    ],
+  },
+  {
+    id: 'tip-persiapan-fisik',
+    category: 'fisik',
+    categoryLabel: 'Persiapan Fisik',
+    title: 'Kebugaran Ringan & Alas Kaki Anti-Selip',
+    highlightValue: 'Elevasi 1.150 mdpl',
+    summary:
+      'Sebagian besar jalur desa ramah pemula dan keluarga, namun kontur berundak di kebun teh dan curug membutuhkan pijakan yang mantap.',
+    actionPoints: [
+      'Gunakan sepatu olahraga, sepatu trail ringan, atau sandal gunung dengan sol bergerigi agar aman di tangga batu berembun.',
+      'Lakukan peregangan kaki 5 menit sebelum menuruni jalur Curug Bening (± 25 menit jalan kaki santai).',
+      'Bawa air mineral minimal 600 ml dan camilan ringan; udara sejuk sering membuat rasa haus tidak terasa saat berjalan.',
+    ],
+  },
+  {
+    id: 'tip-perlengkapan-etika',
+    category: 'perlengkapan',
+    categoryLabel: 'Perlengkapan & Etika',
+    title: 'Pakaian Hangat, Tunai Cadangan & Jaga Alam',
+    highlightValue: 'Suhu 16 – 22 °C',
+    summary:
+      'Perubahan cuaca lereng gunung berlangsung cepat pada sore hari, sehingga perlengkapan sederhana membuat wisata jauh lebih nyaman.',
+    actionPoints: [
+      'Siapkan jaket hangat atau windbreaker, terutama jika mengikuti sesi api unggun malam atau camping keluarga.',
+      'Sedia jas hujan lipat/ponco dan kantong kedap air untuk ponsel saat musim peralihan.',
+      'Siapkan uang tunai secukupnya sebagai cadangan QRIS di warung warga, dan selalu bawa kembali sampah plastik ke tempat pilah.',
+    ],
+  },
+];
+
+export interface TravelChecklistItem {
+  id: string;
+  label: string;
+  note: string;
+}
+
+export const TRAVEL_CHECKLIST_ITEMS: TravelChecklistItem[] = [
+  {
+    id: 'cek-jaket',
+    label: 'Jaket hangat atau windbreaker',
+    note: 'Suhu sore & pagi bisa turun hingga 16 °C',
+  },
+  {
+    id: 'cek-sepatu',
+    label: 'Sepatu / sandal gunung anti-selip',
+    note: 'Untuk jalur tanah & tangga batu Curug Bening',
+  },
+  {
+    id: 'cek-minum',
+    label: 'Botol minum pribadi (tumbler)',
+    note: 'Isi ulang air teh hangat tersedia di Pendopo',
+  },
+  {
+    id: 'cek-hujan',
+    label: 'Jas hujan lipat / ponco ringan',
+    note: 'Praktis dibawa saat cuaca berubah di kebun teh',
+  },
+  {
+    id: 'cek-tunai',
+    label: 'Uang tunai secukupnya & obat pribadi',
+    note: 'Cadangan sinyal di lembah curug atau jajan warung',
+  },
+];
+
 export function formatRupiah(amount: number): string {
   return `Rp ${new Intl.NumberFormat('id-ID').format(amount)}`;
 }

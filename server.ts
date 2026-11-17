@@ -8,16 +8,27 @@ import {createServer as createViteServer} from 'vite';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const NGARGOYOSO_LAT = '-7.6248';
-const NGARGOYOSO_LNG = '111.1324';
+const NGARGOYOSO_LAT = -7.6248;
+const NGARGOYOSO_LNG = 111.1324;
+
+function getMapsApiKey(): string {
+  return process.env.GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY || '';
+}
 
 async function startServer() {
   const app = express();
+  app.use(express.json());
   const port = Number(process.env.PORT) || 3000;
 
+  app.get('/api/maps-config', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({
+      apiKey: getMapsApiKey(),
+    });
+  });
+
   app.get('/api/weather', async (_req, res) => {
-    const apiKey =
-      process.env.GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY;
+    const apiKey = getMapsApiKey();
 
     if (!apiKey) {
       res.status(200).json({
@@ -30,8 +41,8 @@ async function startServer() {
     try {
       const url = new URL('https://weather.googleapis.com/v1/currentConditions:lookup');
       url.searchParams.append('key', apiKey);
-      url.searchParams.append('location.latitude', NGARGOYOSO_LAT);
-      url.searchParams.append('location.longitude', NGARGOYOSO_LNG);
+      url.searchParams.append('location.latitude', String(NGARGOYOSO_LAT));
+      url.searchParams.append('location.longitude', String(NGARGOYOSO_LNG));
       url.searchParams.append('unitsSystem', 'METRIC');
 
       const apiResponse = await fetch(url.toString(), {
@@ -73,6 +84,227 @@ async function startServer() {
       });
     } catch (error) {
       console.error('Weather API request failed:', error);
+      res.status(502).json({
+        available: false,
+        reason: 'network_error',
+      });
+    }
+  });
+
+  app.post('/api/places/nearby', async (req, res) => {
+    const apiKey = getMapsApiKey();
+    if (!apiKey) {
+      res.status(200).json({
+        available: false,
+        reason: 'missing_key',
+        places: [],
+      });
+      return;
+    }
+
+    const body = (req.body ?? {}) as {
+      includedTypes?: string[];
+      radiusMeters?: number;
+      maxResultCount?: number;
+      latitude?: number;
+      longitude?: number;
+    };
+
+    const includedTypes =
+      Array.isArray(body.includedTypes) && body.includedTypes.length > 0
+        ? body.includedTypes.slice(0, 10)
+        : ['tourist_attraction'];
+    const radiusMeters = Math.min(Math.max(Number(body.radiusMeters) || 5000, 500), 25000);
+    const maxResultCount = Math.min(Math.max(Number(body.maxResultCount) || 8, 1), 15);
+    const latitude = Number(body.latitude) || NGARGOYOSO_LAT;
+    const longitude = Number(body.longitude) || NGARGOYOSO_LNG;
+
+    try {
+      const apiResponse = await fetch(
+        'https://places.googleapis.com/v1/places:searchNearby',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': apiKey,
+            'X-Goog-FieldMask':
+              'places.id,places.displayName,places.formattedAddress,places.shortFormattedAddress,places.location,places.primaryType,places.primaryTypeDisplayName,places.rating,places.userRatingCount,places.googleMapsUri,places.currentOpeningHours.openNow',
+            'X-Goog-Maps-Solution-ID': 'gmp_mcp_codeassist_v1_aistudio',
+          },
+          body: JSON.stringify({
+            includedTypes,
+            maxResultCount,
+            rankPreference: 'POPULARITY',
+            languageCode: 'id',
+            regionCode: 'ID',
+            locationRestriction: {
+              circle: {
+                center: {
+                  latitude,
+                  longitude,
+                },
+                radius: radiusMeters,
+              },
+            },
+          }),
+        }
+      );
+
+      const payload = (await apiResponse.json().catch(() => null)) as {
+        places?: unknown[];
+        error?: {status?: string; message?: string};
+      } | null;
+
+      if (
+        apiResponse.status === 429 ||
+        payload?.error?.status === 'RESOURCE_EXHAUSTED'
+      ) {
+        res.status(429).json({
+          available: false,
+          quotaExceeded: true,
+          places: [],
+        });
+        return;
+      }
+
+      if (!apiResponse.ok || !payload) {
+        res.status(apiResponse.status || 502).json({
+          available: false,
+          reason: payload?.error?.message || 'upstream_error',
+          places: [],
+        });
+        return;
+      }
+
+      res.setHeader('Cache-Control', 'no-store');
+      res.json({
+        available: true,
+        places: Array.isArray(payload.places) ? payload.places : [],
+      });
+    } catch (error) {
+      console.error('Places Nearby request failed:', error);
+      res.status(502).json({
+        available: false,
+        reason: 'network_error',
+        places: [],
+      });
+    }
+  });
+
+  app.post('/api/routes/compute', async (req, res) => {
+    const apiKey = getMapsApiKey();
+    if (!apiKey) {
+      res.status(200).json({
+        available: false,
+        reason: 'missing_key',
+      });
+      return;
+    }
+
+    const body = (req.body ?? {}) as {
+      origin?: {lat: number; lng: number};
+      destination?: {lat: number; lng: number};
+      travelMode?: 'DRIVE' | 'TWO_WHEELER' | 'WALK';
+      avoidTolls?: boolean;
+    };
+
+    if (
+      !body.origin ||
+      !body.destination ||
+      typeof body.origin.lat !== 'number' ||
+      typeof body.origin.lng !== 'number' ||
+      typeof body.destination.lat !== 'number' ||
+      typeof body.destination.lng !== 'number'
+    ) {
+      res.status(400).json({
+        available: false,
+        reason: 'invalid_coordinates',
+      });
+      return;
+    }
+
+    const travelMode =
+      body.travelMode === 'TWO_WHEELER' || body.travelMode === 'WALK'
+        ? body.travelMode
+        : 'DRIVE';
+
+    const requestPayload: Record<string, unknown> = {
+      origin: {
+        location: {
+          latLng: {
+            latitude: body.origin.lat,
+            longitude: body.origin.lng,
+          },
+        },
+      },
+      destination: {
+        location: {
+          latLng: {
+            latitude: body.destination.lat,
+            longitude: body.destination.lng,
+          },
+        },
+      },
+      travelMode,
+      languageCode: 'id-ID',
+      units: 'METRIC',
+      polylineQuality: 'OVERVIEW',
+    };
+
+    if (travelMode === 'DRIVE' || travelMode === 'TWO_WHEELER') {
+      requestPayload.routingPreference = 'TRAFFIC_AWARE';
+      requestPayload.routeModifiers = {
+        avoidTolls: Boolean(body.avoidTolls),
+      };
+    }
+
+    try {
+      const apiResponse = await fetch(
+        'https://routes.googleapis.com/directions/v2:computeRoutes',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': apiKey,
+            'X-Goog-FieldMask':
+              'routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline,routes.legs.steps.navigationInstruction,routes.legs.steps.distanceMeters,routes.legs.steps.staticDuration',
+            'X-Goog-Maps-Solution-ID': 'gmp_mcp_codeassist_v1_aistudio',
+          },
+          body: JSON.stringify(requestPayload),
+        }
+      );
+
+      const payload = (await apiResponse.json().catch(() => null)) as {
+        routes?: unknown[];
+        error?: {status?: string; message?: string};
+      } | null;
+
+      if (
+        apiResponse.status === 429 ||
+        payload?.error?.status === 'RESOURCE_EXHAUSTED'
+      ) {
+        res.status(429).json({
+          available: false,
+          quotaExceeded: true,
+        });
+        return;
+      }
+
+      if (!apiResponse.ok || !payload) {
+        res.status(apiResponse.status || 502).json({
+          available: false,
+          reason: payload?.error?.message || 'upstream_error',
+        });
+        return;
+      }
+
+      res.setHeader('Cache-Control', 'no-store');
+      res.json({
+        available: true,
+        route: Array.isArray(payload.routes) ? payload.routes[0] ?? null : null,
+      });
+    } catch (error) {
+      console.error('Routes computeRoutes failed:', error);
       res.status(502).json({
         available: false,
         reason: 'network_error',

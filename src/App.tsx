@@ -28,6 +28,7 @@ import {FaqSection} from './components/FaqSection';
 import {GalleryLightbox} from './components/GalleryLightbox';
 import {HeroWeatherWidget} from './components/HeroWeatherWidget';
 import {ResilientImage} from './components/ResilientImage';
+import {TravelTipsSection} from './components/TravelTipsSection';
 import {VillageMapSection} from './components/VillageMapSection';
 import {WhatsAppBookingModal} from './components/WhatsAppBookingModal';
 import {WhatsAppIcon} from './components/WhatsAppIcon';
@@ -624,6 +625,9 @@ export default function App() {
 
         {/* Tanya Jawab (FAQ) Section */}
         <FaqSection onAskQuestion={openGeneralWhatsApp} />
+
+        {/* Tips Perjalanan Section */}
+        <TravelTipsSection onAskTransport={openGeneralWhatsApp} />
       </main>
 
       {/* Footer & Kontak Pengelola */}
@@ -679,6 +683,11 @@ export default function App() {
               <li>
                 <a href="#faq" className="hover:text-white hover:underline">
                   Tanya Jawab (FAQ)
+                </a>
+              </li>
+              <li>
+                <a href="#tips" className="hover:text-white hover:underline">
+                  Tips Perjalanan
                 </a>
               </li>
             </ul>

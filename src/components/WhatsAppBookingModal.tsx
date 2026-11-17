@@ -1,5 +1,6 @@
 import {useEffect, useMemo, useState} from 'react';
-import {Check, Copy, Minus, Plus, X} from 'lucide-react';
+import {Check, Copy, Minus, Plus, QrCode, X} from 'lucide-react';
+import {QRCodeSVG} from 'qrcode.react';
 import {
   TOUR_PACKAGES,
   VILLAGE_CONTACT,
@@ -29,9 +30,12 @@ export function WhatsAppBookingModal({
   const [participants, setParticipants] = useState(4);
   const [notes, setNotes] = useState('');
   const [copied, setCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [activeView, setActiveView] = useState<'form' | 'qr'>('form');
 
   useEffect(() => {
     if (!isOpen) return;
+    setActiveView('form');
     if (initialPackageId) {
       setSelectedPackageId(initialPackageId);
       const pkg = TOUR_PACKAGES.find((p) => p.id === initialPackageId);
@@ -123,6 +127,16 @@ export function WhatsAppBookingModal({
     }
   };
 
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(whatsappHref);
+      setLinkCopied(true);
+      window.setTimeout(() => setLinkCopied(false), 2200);
+    } catch {
+      setLinkCopied(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -163,7 +177,119 @@ export function WhatsAppBookingModal({
           </button>
         </div>
 
+        {/* Mode Switcher: Form vs QR Code */}
+        <div className="px-5 pt-3 pb-1 shrink-0 bg-white">
+          <div
+            role="tablist"
+            aria-label="Pilih cara pemesanan WhatsApp"
+            className="grid grid-cols-2 gap-1.5 p-1 bg-[#EEF3EF] rounded-xl"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeView === 'form'}
+              onClick={() => setActiveView('form')}
+              className={`min-h-[40px] px-3 py-1.5 rounded-lg font-display text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap ${
+                activeView === 'form'
+                  ? 'bg-white text-[#1E4D38] shadow-xs'
+                  : 'text-[#435248] hover:text-[#19221C]'
+              }`}
+            >
+              Formulir Pesanan
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeView === 'qr'}
+              onClick={() => setActiveView('qr')}
+              className={`min-h-[40px] px-3 py-1.5 rounded-lg font-display text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap ${
+                activeView === 'qr'
+                  ? 'bg-white text-[#1E4D38] shadow-xs'
+                  : 'text-[#435248] hover:text-[#19221C]'
+              }`}
+            >
+              <QrCode className="w-4 h-4 shrink-0" aria-hidden="true" />
+              <span>QR Code WhatsApp</span>
+            </button>
+          </div>
+        </div>
+
         <div className="overflow-y-auto px-5 py-5 space-y-5">
+          {activeView === 'qr' ? (
+            <div className="flex flex-col items-center text-center space-y-4 py-2">
+              <div className="rounded-2xl border border-[#D1DDD5] bg-white p-4 shadow-xs">
+                <QRCodeSVG
+                  value={whatsappHref}
+                  size={208}
+                  level="M"
+                  fgColor="#0E3823"
+                  bgColor="#FFFFFF"
+                  marginSize={2}
+                  title="QR Code Link WhatsApp Desa Wisata Lereng Asri"
+                />
+              </div>
+
+              <div className="max-w-sm space-y-1.5">
+                <h3 className="font-display text-base font-bold text-[#19221C]">
+                  Pindai untuk Membuka WhatsApp di Perangkat Lain
+                </h3>
+                <p className="text-sm text-[#435248] leading-relaxed">
+                  Arahkan kamera ponsel ke QR Code ini untuk langsung membuka chat WhatsApp ke admin ({VILLAGE_CONTACT.displayPhone}) lengkap dengan rincian pesanan Anda.
+                </p>
+              </div>
+
+              <div className="w-full rounded-xl bg-[#F8FAF8] border border-[#E4EDE6] p-4 text-left space-y-1.5 text-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[#435248]">Paket Dipilih</span>
+                  <span className="font-display font-semibold text-[#19221C] text-right">
+                    {selectedPackage ? selectedPackage.name : 'Konsultasi Wisata'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[#435248]">Jumlah Peserta</span>
+                  <span className="font-semibold text-[#19221C] tabular-nums">
+                    {participants} orang
+                  </span>
+                </div>
+                {estimatedTotal !== null && (
+                  <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-[#E4EDE6]">
+                    <span className="text-[#435248]">Estimasi Biaya</span>
+                    <span className="font-display font-bold text-[#1E4D38] tabular-nums">
+                      {formatRupiah(estimatedTotal)}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center justify-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={handleCopyLink}
+                  className="min-h-[44px] inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-[#D1DDD5] bg-white hover:bg-[#EEF3EF] text-[#19221C] font-display text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap"
+                >
+                  {linkCopied ? (
+                    <>
+                      <Check className="w-4 h-4 text-[#137A48]" aria-hidden="true" />
+                      <span>Link Tersalin</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4" aria-hidden="true" />
+                      <span>Salin Link WhatsApp</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveView('form')}
+                  className="min-h-[44px] px-4 py-2 rounded-xl bg-[#EEF3EF] hover:bg-[#E8F5E9] text-[#0E3823] font-display text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap"
+                >
+                  Ubah Data Pesanan
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
           <div>
             <label
               htmlFor="booking-package"
@@ -328,9 +454,19 @@ export function WhatsAppBookingModal({
               {whatsappMessage}
             </pre>
           </div>
+            </>
+          )}
         </div>
 
         <div className="px-5 py-4 border-t border-[#E4EDE6] bg-white flex flex-col sm:flex-row gap-3 shrink-0">
+          <button
+            type="button"
+            onClick={() => setActiveView((prev) => (prev === 'form' ? 'qr' : 'form'))}
+            className="min-h-[52px] inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-[#D1DDD5] bg-[#F8FAF8] hover:bg-[#EEF3EF] text-[#19221C] font-display text-sm font-semibold transition-colors whitespace-nowrap shrink-0"
+          >
+            <QrCode className="w-5 h-5 text-[#1E4D38] shrink-0" aria-hidden="true" />
+            <span>{activeView === 'form' ? 'Tampilkan QR Code' : 'Kembali ke Formulir'}</span>
+          </button>
           <a
             href={whatsappHref}
             target="_blank"

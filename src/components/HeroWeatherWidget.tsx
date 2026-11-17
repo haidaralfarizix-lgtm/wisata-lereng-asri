@@ -1,5 +1,15 @@
 import {useCallback, useEffect, useState} from 'react';
-import {Cloud, CloudRain, CloudSun, Droplets, RefreshCw, Sun, Wind} from 'lucide-react';
+import {
+  AlertTriangle,
+  Cloud,
+  CloudRain,
+  CloudSun,
+  Droplets,
+  Info,
+  RefreshCw,
+  Sun,
+  Wind,
+} from 'lucide-react';
 
 interface WeatherConditionPayload {
   iconBaseUri?: string;
@@ -89,6 +99,39 @@ function getPreparationTip(data: WeatherApiData): string {
     return 'Udara sejuk, disarankan bawa jaket';
   }
   return 'Cuaca nyaman untuk jalan santai & foto';
+}
+
+interface WeatherAdvisory {
+  kind: 'alert' | 'note';
+  label: string;
+}
+
+function getWeatherAdvisory(data: WeatherApiData): WeatherAdvisory {
+  const temp = data.temperature?.degrees;
+  const feelsLike = data.feelsLikeTemperature?.degrees;
+  const rainChance = data.precipitation?.probability?.percent ?? 0;
+  const windSpeed = data.wind?.speed?.value ?? 0;
+  const type = data.weatherCondition?.type || '';
+
+  if (type.includes('THUNDER') || type.includes('HEAVY_RAIN')) {
+    return {kind: 'alert', label: 'Waspada Hujan & Petir'};
+  }
+  if (rainChance >= 45 || type.includes('RAIN') || type.includes('SHOWER')) {
+    return {kind: 'alert', label: 'Hujan Ringan · Sedia Payung'};
+  }
+  if (type === 'FOG' || type === 'MIST' || type === 'HAZE') {
+    return {kind: 'note', label: 'Berkabut · Hati-hati Jalan'};
+  }
+  if ((typeof temp === 'number' && temp <= 20) || (typeof feelsLike === 'number' && feelsLike <= 19)) {
+    return {kind: 'note', label: 'Bawa Jaket'};
+  }
+  if (windSpeed >= 25) {
+    return {kind: 'note', label: 'Angin Kencang'};
+  }
+  if (typeof temp === 'number' && temp >= 25 && (type === 'CLEAR' || type === 'MOSTLY_CLEAR')) {
+    return {kind: 'note', label: 'Sedia Topi & Air Minum'};
+  }
+  return {kind: 'note', label: 'Nyaman untuk Trekking'};
 }
 
 function WeatherFallbackIcon({type}: {type?: string}) {
@@ -200,14 +243,20 @@ export function HeroWeatherWidget() {
 
   if (unavailable || !weather || typeof weather.temperature?.degrees !== 'number') {
     return (
-      <div className="mt-6 inline-flex flex-wrap items-center justify-between gap-3 rounded-xl bg-black/45 backdrop-blur-md border border-white/20 px-4 py-3 text-white max-w-md">
+      <div className="mt-6 inline-flex flex-wrap items-center justify-between gap-3 rounded-xl bg-black/45 backdrop-blur-md border border-white/20 px-4 py-3 text-white max-w-xl">
         <div className="flex items-center gap-3">
           <CloudSun className="w-6 h-6 text-[#FDE68A] shrink-0" aria-hidden="true" />
           <div>
-            <p className="font-display text-sm font-semibold">
-              Cuaca Ngargoyoso · Rata-rata 18–24 °C
-            </p>
-            <p className="text-xs text-white/80">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="font-display text-sm font-semibold">
+                Cuaca Ngargoyoso · Rata-rata 18–24 °C
+              </p>
+              <span className="inline-flex items-center gap-1 rounded-md bg-[#2E7D52]/40 border border-[#A5ECC0]/40 px-2 py-0.5 font-display text-xs font-semibold text-[#D1FAE5] whitespace-nowrap">
+                <Info className="w-3 h-3 shrink-0" aria-hidden="true" />
+                Bawa Jaket
+              </span>
+            </div>
+            <p className="text-xs text-white/80 mt-0.5">
               Sejuk pegunungan, siapkan jaket hangat untuk pagi &amp; sore
             </p>
           </div>
@@ -232,11 +281,12 @@ export function HeroWeatherWidget() {
   const humidity = weather.relativeHumidity;
   const windSpeed = weather.wind?.speed?.value;
   const tip = getPreparationTip(weather);
+  const advisory = getWeatherAdvisory(weather);
 
   return (
     <div
-      aria-label={`Cuaca saat ini di Ngargoyoso: ${tempRounded} derajat Celsius, ${conditionLabel}`}
-      className="mt-6 inline-flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5 rounded-xl bg-black/50 backdrop-blur-md border border-white/20 px-4 py-3 text-white max-w-xl"
+      aria-label={`Cuaca saat ini di Ngargoyoso: ${tempRounded} derajat Celsius, ${conditionLabel}. Catatan: ${advisory.label}`}
+      className="mt-6 inline-flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5 rounded-xl bg-black/50 backdrop-blur-md border border-white/20 px-4 py-3 text-white max-w-2xl"
     >
       <div className="flex items-center gap-3">
         {iconUri && !iconFailed ? (
@@ -251,15 +301,29 @@ export function HeroWeatherWidget() {
           <WeatherFallbackIcon type={weather.weatherCondition?.type} />
         )}
         <div>
-          <div className="flex items-baseline gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="font-display text-xl font-bold tabular-nums">
               {tempRounded}°C
             </span>
             <span className="font-display text-sm font-semibold text-white/95">
               {conditionLabel}
             </span>
+            <span
+              className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 font-display text-xs font-semibold border whitespace-nowrap ${
+                advisory.kind === 'alert'
+                  ? 'bg-amber-500/25 border-amber-300/50 text-[#FDE68A]'
+                  : 'bg-[#2E7D52]/40 border-[#A5ECC0]/40 text-[#D1FAE5]'
+              }`}
+            >
+              {advisory.kind === 'alert' ? (
+                <AlertTriangle className="w-3 h-3 shrink-0" aria-hidden="true" />
+              ) : (
+                <Info className="w-3 h-3 shrink-0" aria-hidden="true" />
+              )}
+              <span>{advisory.label}</span>
+            </span>
           </div>
-          <p className="text-xs text-white/80">
+          <p className="text-xs text-white/80 mt-0.5">
             Ngargoyoso saat ini · {tip}
           </p>
         </div>
